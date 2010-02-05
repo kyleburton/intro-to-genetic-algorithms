@@ -4,22 +4,22 @@ This is a potential talk that I offered to Philly Lambda.
 
 * complex problem spaces
 * getting stuck in local maximas
-  * effect of mutation probability and rate on the chances you'll escape a local maxima
+** effect of mutation probability and rate on the chances you'll escape a local maxima
 * GA is a stochiastic process
-  * it may not _ever_ find a solution
-  * your problem may not have a solution(!)
-  * it may take a really long time
-  * ...leads to talking about the aplicabilty of GA to different types of problems
-  * it may not be the best approach
+** it may not _ever_ find a solution
+** your problem may not have a solution(!)
+** it may take a really long time
+** ...leads to talking about the aplicabilty of GA to different types of problems
+** it may not be the best approach
 * What kinds of problems is it good for then?
 * choosing a representation for your genome
 * breeding
 * random mutation
-  * mutation probability
-  * mutation rate
-  * swapping
+** mutation probability
+** mutation rate
+** swapping
 * The fitness function
-  * between 0 and 1
-  * the effect of squaring it
+** between 0 and 1
+** the effect of squaring it
 * 'Dead' chromosomes
-  * can carry information
+** can carry information
