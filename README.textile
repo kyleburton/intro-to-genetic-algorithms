@@ -23,3 +23,12 @@ This is a potential talk that I offered to Philly Lambda.
 ** the effect of squaring it
 * 'Dead' chromosomes
 ** can carry information
+* Other ideas to explore
+** allow population size to vary randomly
+*** simulate growth / shrinkage
+*** temporarily fracture and then merge populations?
+** allow the mutation probability or rate to vary
+*** not enough diversity in the population? up the mutation
+*** no improvement for a while? up the mutation
+** include newly created random genomes in subsequent generations?
+** experiment with monogamy?
