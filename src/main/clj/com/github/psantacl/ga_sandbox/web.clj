@@ -11,28 +11,43 @@
 (defonce *log4j-config* (atom nil))
 
 (defonce *compojure-config*
-  (atom {"com.algorithmics.v4-interface.web.port" 8001}))
+  (atom {:port 8001}))
 
 (defn reload-log4j-configuration []
   ;; TODO: look into using a property or xml configurator as well
   (if (not (nil? @*log4j-config*))
     (org.apache.log4j.PropertyConfigurator/configure @*log4j-config*)))
 
-(defn page-footer []
-  [:div
-   [:h1 ""]
-   [:ul
-    [:li [:a {:href "/"} "Home"]]]])
+(defmacro defpage [name title & body]
+  `(defn ~name [~'request ~'params]
+     (compojure/html
+      [:html
+       [:head
+        [:link { :href "/stylesheets/app.css" :media "screen" :rel "stylesheet" :type "text/css"}]
+        [:title ~title]]
+       [:body
+        (compojure/html ~@body)]
+       [:div
+        [:ul
+         [:li [:a {:href "/"} "Home"]]]]
+       [:script {:src "/javascript/jquery-1.4.2.min.js"}]])))
 
-(defn index-page [request params]
-  (compojure/html
-   [:h1 "Einstein Solver"]
-   [:div
-    [:p "This UI sucks, make it better, do some css and some jQuery please..."]]
-   (page-footer)))
+(defpage index-page "Einstein Solver"
+  [:h1 "Einstein Solver"]
+  [:div
+   [:p "This UI sucks, make it better, do some css and some jQuery please..."]])
+
+(defn web-root []
+  (format "%s/src/main/resources" (System/getProperty "com.github.kyleburton.project-dir")))
+
+(defn serve-file [path]
+  (compojure/serve-file (web-root) path))
 
 (compojure/defroutes my-app
-  (compojure/GET "/"                                 (index-page request params)))
+  (compojure/GET "/"                           (index-page request params))
+  (compojure/GET "/*"                          (or (serve-file (params :*))
+                                                   :next))
+  (compojure/ANY "*"                           (compojure/page-not-found)))
 
 (defn start-server []
   (log/infof "Starting compojure server: %s" @*compojure-config*)
@@ -46,6 +61,16 @@
 (defn stop-server []
   (compojure/stop @*server*)
   (reset! *server* nil))
+
+(comment
+
+
+  (start-server)
+
+  (stop-server)
+
+
+)
 
 
 
