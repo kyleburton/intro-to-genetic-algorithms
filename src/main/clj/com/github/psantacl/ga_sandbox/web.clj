@@ -20,7 +20,20 @@
   (atom {:generation-number 0
          :best-genome       [0.00 (main/einstein-random-genome)]
          :rest-of-genome    nil
+         :best-scores       [[0] 0.00]
+         :avg-scores        [0.00]
+         :avg-score         0.00
          :params            nil}))
+
+(defn reset-curr-stats! []
+  (reset! *curr-generation*
+          {:generation-number 0
+           :best-genome       [0.00 (main/einstein-random-genome)]
+           :rest-of-genome    nil
+           :best-scores       [[0] 0.00]
+           :avg-scores        [0.00]
+           :avg-score         0.00
+           :params            nil}))
 
 (defn reload-log4j-configuration []
   ;; TODO: look into using a property or xml configurator as well
@@ -38,17 +51,28 @@
         (compojure/html ~@body)
         [:script {:src "/javascript/jquery-1.4.2.min.js"}]
         [:script {:src "/javascript/Jaml-all.js"}]
+        [:script {:src "/javascript/raphael-min.js"}]
+        [:script {:src "/javascript/g.raphael-min.js"}]
+        [:script {:src "/javascript/g.bar-min.js"}]
+        [:script {:src "/javascript/g.dot-min.js"}]
+        [:script {:src "/javascript/g.line-min.js"}]
+        [:script {:src "/javascript/g.pie-min.js"}]
         [:script {:src "/javascript/ga.js"}]]])))
 
-(defpage index-page "Einstein Solver"
-  [:h1 "Einstein Solver"]
+(defpage index-page "GA Einstein's Puzzle"
+  [:h1 "Einstein's Puzzle - Current Status"]
   [:div
   [:div
    [:table
     [:tr [:th "Var"] [:th "Val"]]
     [:tr [:td "Generations"] [:td {:id "generation-number"} "&nbsp;"]]
-    [:tr [:td "Best Score"]  [:td {:id "best-score"} "&nbsp;"]]]]]
-  [:div {:id "best-genome"}]
+    [:tr [:td "Best Score"]  [:td {:id "best-score"} "&nbsp;"]]
+    [:tr [:td "Avg Score"]   [:td {:id "avg-score"} "&nbsp;"]]]]]
+  [:div {:class "clear-both"}]
+  [:div
+   [:div {:id "best-genome"}]
+   [:div {:id "raphael-graph"}]]
+  [:div {:class "clear-both"}]
   [:div {:id "messages"}]
   [:div
    [:ul
@@ -94,17 +118,25 @@
   (ga/run-simulation
    (ga/gen-population 1000 main/einstein-random-genome)
    {:stop-score     1.0
-    :max-iterations 500                 ; 3000
+    :max-iterations 2000                 ; 3000
     :survival-fn    (fn [ranked-population] (ga/random-weighted-survives ranked-population (* 0.80 (count ranked-population))))
     :mutator-fn     (fn [genome] (main/mutate-genome+chromosome-swap genome 0.40 0.30))
     :report-fn      (fn [generation-number [best & not-best] params]
-                      (reset!
-                       *curr-generation*
-                       {:generation-number generation-number
-                        :best-genome       best
-                        :rest-of-genome    "too big, sorry" ;; not-best
-                        :params            "can't make params into json"  ;; params
-                        })
+                      (printf (format "best=%s" best))
+                      (let [avg-score (/ (apply + (first best) (map first not-best))
+                                         (inc (count not-best)))]
+                        (reset!
+                        *curr-generation*
+                        (merge
+                         @*curr-generation*
+                         {:generation-number generation-number
+                          :best-genome       best
+                          :best-scores       (conj (:best-scores @*curr-generation*) [generation-number (first best)])
+                          :rest-of-genome    "too big, sorry" ;; not-best
+                          :params            "can't make params into json" ;; params
+                          :avg-score         avg-score
+                          :avg-scores        (conj (:avg-scores @*curr-generation*) [generation-number avg-score])
+                          })))
                       (println (format "best[%s] %s" generation-number best))
                       ;; TODO: put the score info into a history
                       ;; so we can graph it for the metircs we can capture:
@@ -140,6 +172,7 @@
          :message (format "Error: " @*simulation-thread*)}
         (do
           (reset! *simulation-thread* nil)
+          (reset-curr-stats!)
           {:result :success})))))
 
 

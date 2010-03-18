@@ -2,4 +2,14 @@ body {
   background: #DDD;
 }
 
+#best-genome {
+    float: left;
+}
 
+#raphael-graph {
+    float: right;
+}
+
+.clear-both {
+    clear: both;
+}

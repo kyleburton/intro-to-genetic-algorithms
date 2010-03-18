@@ -48,7 +48,7 @@ GA.iconLookup = {
 };
 
 GA.imageUrl = function (attr) {
-  return "<img src='/" + GA.iconLookup[attr] + "' />";
+  return "<img height=\"64\" width=\"64\" src='/" + GA.iconLookup[attr] + "' />";
 
 };
 
@@ -89,17 +89,67 @@ Jaml.register(
        );
     });
 
-GA.displayGenome = function (genome) {
-    $('#best-score').html(genome[0]);
+GA.displayGenome = function (results) {
+    var genome = results['best-genome'];
+    $('#best-score').html((genome[0] * 100) + '%');
+    $('#avg-score').html((results['avg-score'] * 100) + '%');
     $('#best-genome').html(Jaml.render('genome',[genome]));
+
+    $('#raphael-graph').html('');
+    var r = Raphael("raphael-graph");
+    r.g.txtattr.font = "12px 'Fontin Sans', Fontin-Sans, sans-serif";
+
+    var generations = [], best_scores = [], avg_scores = [];
+    var numScores = results['best-scores'].length;
+    temp = results;
+    var max = numScores; //  > 20 ? 20 : numScores;
+    //for (var i = 0; i < results['best-scores'].length; i++) {
+    for (var i = 0; i < max; i++) {
+        generations[i] = i;
+        best_scores[i] = results['best-scores'][i][1];
+        if ( 'undefined' === typeof(best_scores[i])) best_scores[i] = 0;
+        best_scores[i] = best_scores[i] * 100;
+
+        avg_scores[i] = 0;
+        if (  results['avg-scores'][i] ) {
+            avg_scores[i] = results['avg-scores'][i][1];
+            if ( 'undefined' === typeof(avg_scores[i])) avg_scores[i] = 0;
+            avg_scores[i] = avg_scores[i] * 100;
+        }
+    }
+
+    r.g.text(160, 10, "Best Score and Avg Score by generation");
+    r.g.linechart(10, 10, 320, 300, generations, [best_scores, avg_scores], {shade: true});
+
+    /*
+    r.g.text(160, 10, "Simple Line Chart");
+    r.g.text(480, 10, "shade = true");
+    r.g.text(160, 250, "shade = true & nostroke = true");
+    r.g.text(480, 250, "Symbols, axis and hover effect");
+    r.g.linechart(10, 10, 300, 220, x, [y, y2, y3]);
+    r.g.linechart(330, 10, 300, 220, x, [y, y2, y3], {shade: true});
+    r.g.linechart(10, 250, 300, 220, x, [y, y2, y3], {nostroke: true, shade: true});
+    var lines = r.g.linechart(330, 250, 300, 220,
+                              [[1, 2, 3, 4, 5, 6, 7],
+                               [3.5, 4.5, 5.5, 6.5, 7, 8]],
+                              [[12, 32, 23, 15, 17, 27, 22],
+                               [10, 20, 30, 25, 15, 28]],
+                              {nostroke: false, axis: "0 0 1 1", symbol: "o"}
+                             ).hoverColumn(function () {
+                                               this.tags = r.set();
+                                               for (var i = 0, ii = this.y.length; i < ii; i++) {
+                                                   this.tags.push(r.g.tag(this.x, this.y[i], this.values[i], 160, 10).insertBefore(this).attr([{fill: "#fff"}, {fill: this.symbols[i].attr("fill")}]));
+                                               }
+                                           }, function () {
+                                               this.tags && this.tags.remove();
+                                           });
+     */
 };
 
 GA.pingSuccess = function (results) {
-    // console.log('pingSuccess: results => ');
-    // console.dir(results);
     $('#generation-number').html(results['generation-number']);
-    GA.displayGenome(results['best-genome']);
-    // window.setTimeout(GA.pingStats, 10000);
+    GA.displayGenome(results);
+    // window.setTimeout(GA.pingStats, 2500);
     $('#messages').html("Retrieved current stats.");
 };
 
@@ -107,7 +157,6 @@ GA.pingError = function (data) {
     console.log('Error! data is => ');
     console.dir(data);
     $('#messages').html("Error retreiving simulation info: " + data);
-    // window.setTimeout(GA.pingStats, 10000);
 };
 
 GA.pingStats = function () {
@@ -121,7 +170,6 @@ GA.pingStats = function () {
 };
 
 GA.init = function () {
-    // window.setTimeout(GA.pingStats, 1000);
     $('#refresh-button').click(GA.pingStats);
     GA.pingStats();
 };
