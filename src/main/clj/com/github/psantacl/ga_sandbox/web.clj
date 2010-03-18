@@ -1,9 +1,11 @@
 (ns com.github.psantacl.ga-sandbox.web
   (:require
-   [com.github.psantacl.ga-sandbox.log      :as log]
-   [clojure.contrib.str-utils               :as str-utils]
-   [compojure :as compojure]
-   [clojure.contrib.json.write :as wjs])
+   [com.github.psantacl.ga-sandbox.log           :as log]
+   [clojure.contrib.str-utils                    :as str-utils]
+   [compojure                                    :as compojure]
+   [clojure.contrib.json.write                   :as wjs]
+   [com.github.psantacl.ga-sandbox.framework     :as ga]
+   [com.github.psantacl.ga-sandbox.einstein-main :as main])
   (:gen-class))
 
 (defonce *log* (log/get-logger *ns*))
@@ -16,7 +18,7 @@
 
 (defonce *curr-generation*
   (atom {:generation-number 0
-         :best-genome       nil
+         :best-genome       [0.00 (main/einstein-random-genome)]
          :rest-of-genome    nil
          :params            nil}))
 
@@ -34,25 +36,25 @@
         [:title ~title]]
        [:body
         (compojure/html ~@body)
-        [:div
-         [:table
-          [:tr [:th "Var"] [:th "Val"]]
-          [:tr [:td "Generations"] [:td {:id "generation-number"} "&nbsp;"]]
-          [:tr [:td "Best Genome"] [:td {:id "best-genome"} "&nbsp;"]]
-          [:tr [:td "Params"]      [:td {:id "params"} "&nbsp;"]]]]
-        [:div
-         [:ul
-          [:li [:a {:id "refresh-button"  :href "#"} "Refresh"]]
-          [:li [:a {:href "/"} "Home"]]]]
         [:script {:src "/javascript/jquery-1.4.2.min.js"}]
+        [:script {:src "/javascript/Jaml-all.js"}]
         [:script {:src "/javascript/ga.js"}]]])))
 
 (defpage index-page "Einstein Solver"
   [:h1 "Einstein Solver"]
   [:div
-   [:p "This UI sucks, make it better, do some css and some jQuery please..."]
-   [:p "Start / Stop the simulation (and show if it's running)."]
-   [:p "Hook into the reporting-fn and show a representation of the genome here."]])
+  [:div
+   [:table
+    [:tr [:th "Var"] [:th "Val"]]
+    [:tr [:td "Generations"] [:td {:id "generation-number"} "&nbsp;"]]
+    [:tr [:td "Best Score"]  [:td {:id "best-score"} "&nbsp;"]]]]]
+  [:div {:id "best-genome"}]
+  [:div {:id "messages"}]
+  [:div
+   [:ul
+    [:li [:a {:id "refresh-button"  :href "#"} "Refresh"]]
+    [:li [:a {:href "/"} "Home"]]]])
+
 
 (defn web-root []
   (format "%s/src/main/resources" (System/getProperty "com.github.kyleburton.project-dir")))
@@ -62,9 +64,9 @@
 
 (compojure/defroutes my-app
   (compojure/GET "/"                            (index-page request params))
+  (compojure/GET "/ga/current-generation.json"  (wjs/json-str @*curr-generation*))
   (compojure/GET "/*"                           (or (serve-file (params :*))
                                                     :next))
-  (compojure/GET "/ga/current-generation.json"  (wjs/json-str @*curr-generation*))
   (compojure/ANY "*"                            (compojure/page-not-found)))
 
 (defn start-server []
@@ -80,6 +82,67 @@
   (compojure/stop @*server*)
   (reset! *server* nil))
 
+
+;; need a background thread for running the simluation
+;; and a set of functions for interacting with it
+;;   the report fn can just update the current-state atom
+(defonce *simulation-thread* (atom nil))
+
+;; TODO allow these properties to be tweaked in the UI
+;; TODO notice when the simulation has stopped all by itself...
+(defn simulation []
+  (ga/run-simulation
+   (ga/gen-population 1000 main/einstein-random-genome)
+   {:stop-score     1.0
+    :max-iterations 500                 ; 3000
+    :survival-fn    (fn [ranked-population] (ga/random-weighted-survives ranked-population (* 0.80 (count ranked-population))))
+    :mutator-fn     (fn [genome] (main/mutate-genome+chromosome-swap genome 0.40 0.30))
+    :report-fn      (fn [generation-number [best & not-best] params]
+                      (reset!
+                       *curr-generation*
+                       {:generation-number generation-number
+                        :best-genome       best
+                        :rest-of-genome    "too big, sorry" ;; not-best
+                        :params            "can't make params into json"  ;; params
+                        })
+                      (println (format "best[%s] %s" generation-number best))
+                      ;; TODO: put the score info into a history
+                      ;; so we can graph it for the metircs we can capture:
+                      ;;    score of best over time
+                      ;;    avg score of the population
+                      ;;    anything else?
+                      ;; then use RapahelJS to make neato graphs
+                      (doseq [spec main/*all-fitness-predicates*]
+                        (if (not ((:pred spec) (main/get-houses (second best))))
+                          (println (format "  failed: %s" (:name spec))))))
+    :fitness-fn     main/einstein-fitness-score}))
+
+(defn start-simulation []
+  (if @*simulation-thread*
+    {:result :error
+     :message (format "Error: simulation is already running: %s" @*simulation-thread*)}
+    (do
+      (reset! *simulation-thread* (Thread. simulation))
+      (.start @*simulation-thread*)
+      {:result :success})))
+
+(defn stop-simulation []
+  (if (not @*simulation-thread*)
+    {:result :error
+     :message (format "Error: simulation is already running: %s" @*simulation-thread*)}
+    (do
+      (if (.isAlive @*simulation-thread*)
+        (ga/stop-simulation))
+      (log/infof "'joining' simulation thread, awaiting p to 5s")
+      (.join @*simulation-thread* 5000)
+      (if (.isAlive @*simulation-thread*)
+        {:result :error
+         :message (format "Error: " @*simulation-thread*)}
+        (do
+          (reset! *simulation-thread* nil)
+          {:result :success})))))
+
+
 (comment
 
 
@@ -88,6 +151,14 @@
   (stop-server)
 
   (wjs/json-str @*curr-generation*)
+
+  (.isAlive @*simulation-thread*)
+
+  @*curr-generation*
+
+  (start-simulation)
+
+  (stop-simulation)
 
 
 )
