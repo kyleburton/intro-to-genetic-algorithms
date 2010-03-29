@@ -19,11 +19,41 @@
 (defonce *curr-generation*
   (atom {:generation-number 0
          :best-genome       [0.00 (main/einstein-random-genome)]
+         :best-fitness      nil
          :rest-of-genome    nil
          :best-scores       [[0] 0.00]
          :avg-scores        [0.00]
          :avg-score         0.00
          :params            nil}))
+
+(defn fitness-report-by-predicate [genome]
+  (map (fn [spec]
+         {:passed (if ((:pred spec) (main/get-houses genome))
+                    true false)
+          :name (:name spec)})
+       main/*all-fitness-predicates*))
+
+;;   (doseq [spec main/*all-fitness-predicates*]
+;;     (if (not ((:pred spec) (main/get-houses (second best))))
+;;       (println (format "  failed: %s" (:name spec)))))
+
+(defn reset!-curr-generation []
+  (let [g (main/einstein-random-genome)]
+   (reset! *curr-generation*
+           {:generation-number 0
+            :best-genome       [(main/einstein-fitness-score g) g]
+            :best-fitness      (fitness-report-by-predicate g)
+            :rest-of-genome    nil
+            :best-scores       [[0] 0.00]
+            :avg-scores        [0.00]
+            :avg-score         0.00
+            :params            nil})))
+
+;; (let [g (main/einstein-random-genome)] (fitness-report-by-predicate g))
+;; (let [g (main/einstein-random-genome)] g)
+;; (let [g (main/einstein-random-genome)] (main/einstein-fitness-score g))
+;; (let [g (main/einstein-random-genome)] ((:pred (first main/*all-fitness-predicates*))) (main/get-houses g))
+;; (reset!-curr-generation)
 
 (defn reset-curr-stats! []
   (reset! *curr-generation*
@@ -57,6 +87,7 @@
         [:script {:src "/javascript/g.dot-min.js"}]
         [:script {:src "/javascript/g.line-min.js"}]
         [:script {:src "/javascript/g.pie-min.js"}]
+        [:script {:src "/javascript/json2.js"}]
         [:script {:src "/javascript/ga.js"}]]])))
 
 (defpage index-page "GA Einstein's Puzzle"
@@ -64,7 +95,6 @@
   [:div
   [:div
    [:table
-    [:tr [:th "Var"] [:th "Val"]]
     [:tr [:td "Generations"] [:td {:id "generation-number"} "&nbsp;"]]
     [:tr [:td "Best Score"]  [:td {:id "best-score"} "&nbsp;"]]
     [:tr [:td "Avg Score"]   [:td {:id "avg-score"} "&nbsp;"]]]]]
@@ -77,7 +107,35 @@
   [:div
    [:ul
     [:li [:a {:id "refresh-button"  :href "#"} "Refresh"]]
-    [:li [:a {:href "/"} "Home"]]]])
+    [:li [:a {:href "/"} "Home"]]]]
+[:div
+[:pre
+ [:a {:href "http://www.stanford.edu/~laurik/fsmbook/examples/Einstein%27sPuzzle.html"} "Einstein's Puzzle"]
+ "
+    1. The Englishman lives in the red house.
+    2. The Swede keeps dogs.
+    3. The Dane drinks tea.
+    4. The green house is just to the left of the white one.
+    5. The owner of the green house drinks coffee.
+    6. The Pall Mall smoker keeps birds.
+    7. The owner of the yellow house smokes Dunhills.
+    8. The man in the center house drinks milk.
+    9. The Norwegian lives in the first house.
+   10. The Blend smoker has a neighbor who keeps cats.
+   11. The man who smokes Blue Masters drinks bier.
+   12. The man who keeps horses lives next to the Dunhill smoker.
+   13. The German smokes Prince.
+   14. The Norwegian lives next to the blue house.
+   15. The Blend smoker has a neighbor who drinks water.
+
+ 5 houses
+  - color
+  - nationality
+  - drink
+  - tobacco
+  - pet
+"]]
+  )
 
 
 (defn web-root []
@@ -106,11 +164,31 @@
   (compojure/stop @*server*)
   (reset! *server* nil))
 
-
 ;; need a background thread for running the simluation
 ;; and a set of functions for interacting with it
 ;;   the report fn can just update the current-state atom
-(defonce *simulation-thread* (atom nil))
+(defn ga-report-fn [generation-number [best & not-best] params]
+  (printf (format "best=%s" best))
+  (let [avg-score (/ (apply + (first best) (map first not-best))
+                     (inc (count not-best)))]
+    (reset!
+     *curr-generation*
+     (merge
+      @*curr-generation*
+      {:generation-number generation-number
+       :best-genome       best
+       :best-scores       (conj (:best-scores @*curr-generation*) [generation-number (first best)])
+       :best-fitness      (fitness-report-by-predicate (second best))
+       ;; (map #(prn (:pred %)) main/*all-fitness-predicates*)
+       :rest-of-genome    "too big, sorry"              ;; not-best
+       :params            "can't make params into json" ;; params
+       :avg-score         avg-score
+       :avg-scores        (conj (:avg-scores @*curr-generation*) [generation-number avg-score])
+       })))
+  (println (format "best[%s] %s" generation-number best))
+  (doseq [spec main/*all-fitness-predicates*]
+    (if (not ((:pred spec) (main/get-houses (second best))))
+      (println (format "  failed: %s" (:name spec))))))
 
 ;; TODO allow these properties to be tweaked in the UI
 ;; TODO notice when the simulation has stopped all by itself...
@@ -121,33 +199,10 @@
     :max-iterations 2000                 ; 3000
     :survival-fn    (fn [ranked-population] (ga/random-weighted-survives ranked-population (* 0.80 (count ranked-population))))
     :mutator-fn     (fn [genome] (main/mutate-genome+chromosome-swap genome 0.40 0.30))
-    :report-fn      (fn [generation-number [best & not-best] params]
-                      (printf (format "best=%s" best))
-                      (let [avg-score (/ (apply + (first best) (map first not-best))
-                                         (inc (count not-best)))]
-                        (reset!
-                        *curr-generation*
-                        (merge
-                         @*curr-generation*
-                         {:generation-number generation-number
-                          :best-genome       best
-                          :best-scores       (conj (:best-scores @*curr-generation*) [generation-number (first best)])
-                          :rest-of-genome    "too big, sorry" ;; not-best
-                          :params            "can't make params into json" ;; params
-                          :avg-score         avg-score
-                          :avg-scores        (conj (:avg-scores @*curr-generation*) [generation-number avg-score])
-                          })))
-                      (println (format "best[%s] %s" generation-number best))
-                      ;; TODO: put the score info into a history
-                      ;; so we can graph it for the metircs we can capture:
-                      ;;    score of best over time
-                      ;;    avg score of the population
-                      ;;    anything else?
-                      ;; then use RapahelJS to make neato graphs
-                      (doseq [spec main/*all-fitness-predicates*]
-                        (if (not ((:pred spec) (main/get-houses (second best))))
-                          (println (format "  failed: %s" (:name spec))))))
+    :report-fn      ga-report-fn
     :fitness-fn     main/einstein-fitness-score}))
+
+(defonce *simulation-thread* (atom nil))
 
 (defn start-simulation []
   (if @*simulation-thread*
@@ -187,7 +242,11 @@
 
   (.isAlive @*simulation-thread*)
 
+  (reset!-curr-generation)
+  *curr-generation*
   @*curr-generation*
+
+  (:best-fitness @*curr-generation*)
 
   (start-simulation)
 

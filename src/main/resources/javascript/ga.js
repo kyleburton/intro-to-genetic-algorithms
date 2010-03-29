@@ -13,7 +13,7 @@ GA.keys = function (someObject) {
     return theKeys;
 };
 
-GA.slot = function (houseNo, propIdx) {
+GA.slotNum = function (houseNo, propIdx) {
     return (houseNo-1) * 5 + propIdx;
 };
 
@@ -49,7 +49,21 @@ GA.iconLookup = {
 
 GA.imageUrl = function (attr) {
   return "<img height=\"64\" width=\"64\" src='/" + GA.iconLookup[attr] + "' />";
+};
 
+GA.answer = ["green","German","coffee","Prince","fish","white","Swede","bier","BlueMaster","dogs","red","Englishman","milk","Blend","horses","yellow","Norwegian","water","Dunhill","cats","blue","Dane","tea","PallMall","birds"];
+
+GA.cellContent = function( xpos, ypos, genome ) {
+    var openTag = '<span ',
+        pos = GA.slotNum(xpos,ypos),
+        val = genome[1][pos];
+    if ( val === GA.answer[pos]) {
+        openTag += "class='correct'";
+    }
+    else {
+        openTag += "class='incorrect'";
+    }
+    return openTag + '>' + GA.imageUrl(val) + '</span>';
 };
 
 Jaml.register(
@@ -57,53 +71,64 @@ Jaml.register(
     function (genome) {
         table(
             // house icons
-            tr(td(GA.imageUrl(genome[1][GA.slot(1,0)])),
-               td(GA.imageUrl(genome[1][GA.slot(2,0)])),
-               td(GA.imageUrl(genome[1][GA.slot(3,0)])),
-               td(GA.imageUrl(genome[1][GA.slot(4,0)])),
-               td(GA.imageUrl(genome[1][GA.slot(5,0)]))),
+            tr(td(GA.cellContent(1,0,genome)),
+               td(GA.cellContent(2,0,genome)),
+               td(GA.cellContent(3,0,genome)),
+               td(GA.cellContent(4,0,genome)),
+               td(GA.cellContent(5,0,genome))),
             // nationality
-            tr(td(GA.imageUrl(genome[1][GA.slot(1,1)])),
-               td(GA.imageUrl(genome[1][GA.slot(2,1)])),
-               td(GA.imageUrl(genome[1][GA.slot(3,1)])),
-               td(GA.imageUrl(genome[1][GA.slot(4,1)])),
-               td(GA.imageUrl(genome[1][GA.slot(5,1)]))),
+            tr(td(GA.cellContent(1,1,genome)),
+               td(GA.cellContent(2,1,genome)),
+               td(GA.cellContent(3,1,genome)),
+               td(GA.cellContent(4,1,genome)),
+               td(GA.cellContent(5,1,genome))),
             // drink
-            tr(td(GA.imageUrl(genome[1][GA.slot(1,2)])),
-               td(GA.imageUrl(genome[1][GA.slot(2,2)])),
-               td(GA.imageUrl(genome[1][GA.slot(3,2)])),
-               td(GA.imageUrl(genome[1][GA.slot(4,2)])),
-               td(GA.imageUrl(genome[1][GA.slot(5,2)]))),
+            tr(td(GA.cellContent(1,2,genome)),
+               td(GA.cellContent(2,2,genome)),
+               td(GA.cellContent(3,2,genome)),
+               td(GA.cellContent(4,2,genome)),
+               td(GA.cellContent(5,2,genome))),
             // cigar
-            tr(td(GA.imageUrl(genome[1][GA.slot(1,3)])),
-               td(GA.imageUrl(genome[1][GA.slot(2,3)])),
-               td(GA.imageUrl(genome[1][GA.slot(3,3)])),
-               td(GA.imageUrl(genome[1][GA.slot(4,3)])),
-               td(GA.imageUrl(genome[1][GA.slot(5,3)]))),
+            tr(td(GA.cellContent(1,3,genome)),
+               td(GA.cellContent(2,3,genome)),
+               td(GA.cellContent(3,3,genome)),
+               td(GA.cellContent(4,3,genome)),
+               td(GA.cellContent(5,3,genome))),
             // pet
-            tr(td(GA.imageUrl(genome[1][GA.slot(1,4)])),
-               td(GA.imageUrl(genome[1][GA.slot(2,4)])),
-               td(GA.imageUrl(genome[1][GA.slot(3,4)])),
-               td(GA.imageUrl(genome[1][GA.slot(4,4)])),
-               td(GA.imageUrl(genome[1][GA.slot(5,4)])))
+            tr(td(GA.cellContent(1,4,genome)),
+               td(GA.cellContent(2,4,genome)),
+               td(GA.cellContent(3,4,genome)),
+               td(GA.cellContent(4,4,genome)),
+               td(GA.cellContent(5,4,genome)))
        );
     });
 
+GA.appendMessage = function (msg,t) {
+    t = t || 'p';
+    var tag = $('<' + t + '>');
+    tag.html(msg);
+    $('#messages').append(tag);
+};
+
 GA.displayGenome = function (results) {
     var genome = results['best-genome'];
+
+    GA.appendMessage(JSON.stringify(results['best-genome'][1]),'pre');
+
+    // display the list of passed / failed predicates with some markup
+
     $('#best-score').html((genome[0] * 100) + '%');
     $('#avg-score').html((results['avg-score'] * 100) + '%');
     $('#best-genome').html(Jaml.render('genome',[genome]));
 
     $('#raphael-graph').html('');
-    var r = Raphael("raphael-graph");
-    r.g.txtattr.font = "12px 'Fontin Sans', Fontin-Sans, sans-serif";
+    var raphael = Raphael("raphael-graph");
+    raphael.g.txtattr.font = "12px 'Fontin Sans', Fontin-Sans, sans-serif";
 
     var generations = [], best_scores = [], avg_scores = [];
     var numScores = results['best-scores'].length;
     temp = results;
-    var max = numScores; //  > 20 ? 20 : numScores;
-    //for (var i = 0; i < results['best-scores'].length; i++) {
+    var max = numScores;
     for (var i = 0; i < max; i++) {
         generations[i] = i;
         best_scores[i] = results['best-scores'][i][1];
@@ -111,46 +136,27 @@ GA.displayGenome = function (results) {
         best_scores[i] = best_scores[i] * 100;
 
         avg_scores[i] = 0;
-        if (  results['avg-scores'][i] ) {
+        if ( results['avg-scores'][i] ) {
             avg_scores[i] = results['avg-scores'][i][1];
             if ( 'undefined' === typeof(avg_scores[i])) avg_scores[i] = 0;
             avg_scores[i] = avg_scores[i] * 100;
         }
+        else {
+            avg_scores[i] = avg_scores[i-1] || 0;
+        }
     }
 
-    r.g.text(160, 10, "Best Score and Avg Score by generation");
-    r.g.linechart(10, 10, 320, 300, generations, [best_scores, avg_scores], {shade: true});
-
-    /*
-    r.g.text(160, 10, "Simple Line Chart");
-    r.g.text(480, 10, "shade = true");
-    r.g.text(160, 250, "shade = true & nostroke = true");
-    r.g.text(480, 250, "Symbols, axis and hover effect");
-    r.g.linechart(10, 10, 300, 220, x, [y, y2, y3]);
-    r.g.linechart(330, 10, 300, 220, x, [y, y2, y3], {shade: true});
-    r.g.linechart(10, 250, 300, 220, x, [y, y2, y3], {nostroke: true, shade: true});
-    var lines = r.g.linechart(330, 250, 300, 220,
-                              [[1, 2, 3, 4, 5, 6, 7],
-                               [3.5, 4.5, 5.5, 6.5, 7, 8]],
-                              [[12, 32, 23, 15, 17, 27, 22],
-                               [10, 20, 30, 25, 15, 28]],
-                              {nostroke: false, axis: "0 0 1 1", symbol: "o"}
-                             ).hoverColumn(function () {
-                                               this.tags = r.set();
-                                               for (var i = 0, ii = this.y.length; i < ii; i++) {
-                                                   this.tags.push(r.g.tag(this.x, this.y[i], this.values[i], 160, 10).insertBefore(this).attr([{fill: "#fff"}, {fill: this.symbols[i].attr("fill")}]));
-                                               }
-                                           }, function () {
-                                               this.tags && this.tags.remove();
-                                           });
-     */
+    raphael.g.text(160, 10, "Best Score and Avg Score by generation");
+    raphael.g.linechart(10, 10, 320, 300, generations, [best_scores, avg_scores], {shade: true});
 };
 
 GA.pingSuccess = function (results) {
     $('#generation-number').html(results['generation-number']);
     GA.displayGenome(results);
     // window.setTimeout(GA.pingStats, 2500);
-    $('#messages').html("Retrieved current stats.");
+    // $('#messages').append($('<p>').html("Retrieved current stats."));
+    // $('#messages').html("Retrieved current stats.");
+    GA.appendMessage("Retreive current stats");
 };
 
 GA.pingError = function (data) {

@@ -152,11 +152,11 @@
       {:name "8. The man in the center house drinks milk."
        :pred
        (fn [houses]
-         #(= :milk (house-drink (nth houses 2))))}
+         (= :milk (house-drink (nth houses 2))))}
       {:name ":9 The Norwegian lives in the first house."
        :pred
        (fn [houses]
-         #(= :Norwegian (house-nationality (nth houses 0))))}
+         (= :Norwegian (house-nationality (nth houses 0))))}
       {:name "10. The Blend smoker has a neighbor who keeps cats."
        :pred
        (fn [houses]

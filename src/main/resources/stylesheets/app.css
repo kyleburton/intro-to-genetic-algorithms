@@ -13,3 +13,11 @@ body {
 .clear-both {
     clear: both;
 }
+
+.correct {
+    background: #7F7;
+}
+
+.incorrect {
+    background: #F77;
+}
