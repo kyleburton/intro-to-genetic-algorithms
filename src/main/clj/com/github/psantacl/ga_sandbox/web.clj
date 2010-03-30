@@ -144,9 +144,16 @@
 (defn serve-file [path]
   (compojure/serve-file (web-root) path))
 
+;; TODO: measure the average diversity -- (/ num-unique-genomes total-genomes)
+(defn curr-generation-as-json [request params]
+  (wjs/json-str
+   (assoc @*curr-generation*
+     :rest-of-genome "sorry, too big"
+     :best-fitness (fitness-report-by-predicate (second (:best-genome @*curr-generation*))))))
+
 (compojure/defroutes my-app
   (compojure/GET "/"                            (index-page request params))
-  (compojure/GET "/ga/current-generation.json"  (wjs/json-str @*curr-generation*))
+  (compojure/GET "/ga/current-generation.json"  (curr-generation-as-json request params))
   (compojure/GET "/*"                           (or (serve-file (params :*))
                                                     :next))
   (compojure/ANY "*"                            (compojure/page-not-found)))
@@ -164,9 +171,6 @@
   (compojure/stop @*server*)
   (reset! *server* nil))
 
-;; need a background thread for running the simluation
-;; and a set of functions for interacting with it
-;;   the report fn can just update the current-state atom
 (defn ga-report-fn [generation-number [best & not-best] params]
   (printf (format "best=%s" best))
   (let [avg-score (/ (apply + (first best) (map first not-best))
@@ -178,9 +182,9 @@
       {:generation-number generation-number
        :best-genome       best
        :best-scores       (conj (:best-scores @*curr-generation*) [generation-number (first best)])
-       :best-fitness      (fitness-report-by-predicate (second best))
+       ;; :best-fitness      (fitness-report-by-predicate (second best))
        ;; (map #(prn (:pred %)) main/*all-fitness-predicates*)
-       :rest-of-genome    "too big, sorry"              ;; not-best
+       :rest-of-genome    not-best ;; "too big, sorry"              ;; not-best
        :params            "can't make params into json" ;; params
        :avg-score         avg-score
        :avg-scores        (conj (:avg-scores @*curr-generation*) [generation-number avg-score])

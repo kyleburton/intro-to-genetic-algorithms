@@ -53,6 +53,7 @@ GA.imageUrl = function (attr) {
 
 GA.answer = ["green","German","coffee","Prince","fish","white","Swede","bier","BlueMaster","dogs","red","Englishman","milk","Blend","horses","yellow","Norwegian","water","Dunhill","cats","blue","Dane","tea","PallMall","birds"];
 
+// TODO: also put on tool tips or other text to show what each val is so users don't have to memorize the pictures...
 GA.cellContent = function( xpos, ypos, genome ) {
     var openTag = '<span ',
         pos = GA.slotNum(xpos,ypos),
@@ -63,7 +64,7 @@ GA.cellContent = function( xpos, ypos, genome ) {
     else {
         openTag += "class='incorrect'";
     }
-    return openTag + '>' + GA.imageUrl(val) + '</span>';
+    return openTag + '>' + GA.imageUrl(val) + '<br/>' + val + '</span>';
 };
 
 Jaml.register(
@@ -108,14 +109,20 @@ GA.appendMessage = function (msg,t) {
     var tag = $('<' + t + '>');
     tag.html(msg);
     $('#messages').append(tag);
+    return tag;
 };
 
 GA.displayGenome = function (results) {
     var genome = results['best-genome'];
 
-    GA.appendMessage(JSON.stringify(results['best-genome'][1]),'pre');
+    // GA.appendMessage(JSON.stringify(results['best-genome'][1]),'pre');
 
     // display the list of passed / failed predicates with some markup
+    $.each(results['best-fitness'], function (idx, pred) {
+               // var tag = GA.appendMessage(JSON.stringify(pred), 'p');
+               var tag = GA.appendMessage(pred.name, 'p');
+               tag.addClass( pred.passed ? 'correct' : 'incorrect' );
+           });
 
     $('#best-score').html((genome[0] * 100) + '%');
     $('#avg-score').html((results['avg-score'] * 100) + '%');

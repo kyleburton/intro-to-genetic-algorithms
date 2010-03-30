@@ -153,7 +153,7 @@
        :pred
        (fn [houses]
          (= :milk (house-drink (nth houses 2))))}
-      {:name ":9 The Norwegian lives in the first house."
+      {:name "9. The Norwegian lives in the first house."
        :pred
        (fn [houses]
          (= :Norwegian (house-nationality (nth houses 0))))}
@@ -244,11 +244,17 @@
                    (nth genome idx))))
     genome))
 
+;; swap a whole chromosome (i.e. swap the location of 2 houses)
+;; TODO: also (sometimes) swap a single gene (correct termonology?) instead of a complete chromosome
 (defn random-chromosome-swap [genome]
-  (let [chromosome-offset (rand-int 5)
-        ch1 (+ chromosome-offset (* 5 (rand-int 5)))
-        ch2 (+ chromosome-offset (* 5 (rand-int 5)))]
-    (assoc genome ch1 (nth genome ch2) ch2 (nth genome ch1))))
+  (let [ch1 (* 5 (rand-int 5))
+        ch2 (* 5 (rand-int 5))]
+      (assoc genome
+        (+ ch1 0) (nth genome (+ ch2 0))    (+ ch2 0) (nth genome (+ ch1 0))
+        (+ ch1 1) (nth genome (+ ch2 1))    (+ ch2 1) (nth genome (+ ch1 1))
+        (+ ch1 2) (nth genome (+ ch2 2))    (+ ch2 2) (nth genome (+ ch1 2))
+        (+ ch1 3) (nth genome (+ ch2 3))    (+ ch2 3) (nth genome (+ ch1 3))
+        (+ ch1 4) (nth genome (+ ch2 4))    (+ ch2 4) (nth genome (+ ch1 4)))))
 
 (defn mutate-genome+chromosome-swap [genome mutation-rate chromosome-mutation-rate]
   (if (<= (ga/rand-float) mutation-rate)
@@ -285,7 +291,7 @@
     (prn "starting simulation")
     (time (ga/run-simulation (ga/gen-population 1000 einstein-random-genome)
                           {:stop-score     1.0
-                           :max-iterations 500 ; 3000
+                           :max-iterations 3000 ; 3000
                            :survival-fn    (fn [ranked-population] (ga/random-weighted-survives ranked-population (* 0.80 (count ranked-population))))
                            :mutator-fn     (fn [genome] (mutate-genome+chromosome-swap genome 0.40 0.30))
 ;;                            :report-fn      (fn [generation-number [best & not-best] params]
